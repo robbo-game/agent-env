@@ -1,0 +1,59 @@
+services:
+  agent:
+    image: ${DIND_IMAGE}
+    container_name: ${COMPOSE_PROJECT_NAME}
+    restart: unless-stopped
+    env_file:
+    - .env
+    ports:
+    - 0.0.0.0:${SSH_PORT}:22
+    - 0.0.0.0:${SERVICE_PORT}:7777
+    - 127.0.0.1:${DIND_SERVICE_PORT}:7778
+    volumes:
+    - ${SSH_AUTHORIZED_KEYS}:/home/agent/.ssh/authorized_keys:ro
+    - /var/lib/ssh-host-keys
+    - ./setup.sh:/usr/local/bin/setup.sh:ro
+    - /workspaces
+    init: true
+    # Setup w tle (nie blokuje sshd), potem oryginalny entrypoint obrazu.
+    entrypoint:
+    - /bin/bash
+    - -c
+    - '/usr/local/bin/setup.sh >&2 </dev/null & exec /usr/local/sbin/docker-entrypoint'
+    secrets:
+    - GH_TOKEN
+    - GHCR_TOKEN
+  dind:
+    image: docker:29-dind
+    privileged: true
+    restart: unless-stopped
+    network_mode: service:agent
+    depends_on:
+      agent:
+        condition: service_started
+        restart: true
+    environment:
+      DOCKER_TLS_CERTDIR: ''
+    command:
+    - dockerd
+    - --host=tcp://127.0.0.1:2375
+    tmpfs:
+    - /var/lib/docker
+    healthcheck:
+      test:
+      - CMD
+      - docker
+      - -H
+      - tcp://127.0.0.1:2375
+      - info
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    
+secrets:
+  GH_TOKEN:
+    file: ${SECRETS_DIR:-${HOME}/.secrets}/GH_TOKEN
+  GHCR_TOKEN:
+    file: ${SECRETS_DIR:-${HOME}/.secrets}/GHCR_TOKEN
+
