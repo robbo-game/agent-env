@@ -16,16 +16,18 @@ for dir in /home/agent /workspaces; do
   find "$dir" -xdev -path /home/agent/.ssh/authorized_keys -prune -o -gid "$old_gid" -exec chgrp -h "$AGENT_GID" {} +
 done
 
-# Read secrets at login without writing their values to disk.
-for token in GH_TOKEN GHCR_TOKEN; do
-  if ! grep -Fq "# agent-env $token" /home/agent/.bash_profile; then
-    cat >> /home/agent/.bash_profile <<EOF
+# Read secrets in interactive and login shells without writing values to disk.
+for profile in /home/agent/.bashrc /home/agent/.bash_profile; do
+  for token in GH_TOKEN GHCR_TOKEN; do
+    if ! grep -Fq "# agent-env $token" "$profile"; then
+      cat >> "$profile" <<EOF
 # agent-env $token
 if [[ -r /run/secrets/$token ]]; then
     export $token="\$(cat /run/secrets/$token)"
 fi
 EOF
-  fi
+    fi
+  done
 done
 
 /usr/local/bin/setup.sh >&2 </dev/null &
