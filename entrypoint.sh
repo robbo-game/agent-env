@@ -30,5 +30,5 @@ EOF
   done
 done
 
-/usr/local/bin/setup.sh >&2 </dev/null &
+bash /usr/local/bin/setup.sh >&2 </dev/null &
 exec /usr/local/sbin/docker-entrypoint
